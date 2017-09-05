@@ -39,7 +39,7 @@ oIE_get( ByRef sTitle = "", ByRef iHWND = "", ByRef sURL = "", ByRef sHTML = "" 
 		}
 	
 	if sTitle
-		clean_IE_Title( sTitle )
+		clean_IE_Title( sTitle ) 
 	;; ok this function should look at all the existing IE instances and build a reference object
 	; List all open Explorer and Internet Explorer windows:
 	oIE := Object()
