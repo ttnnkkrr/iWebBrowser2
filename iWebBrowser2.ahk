@@ -1,4 +1,3 @@
-oIE := new iWebBrowser2
 
 class iWebBrowser2 {
 
