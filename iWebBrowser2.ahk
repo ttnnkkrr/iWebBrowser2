@@ -102,6 +102,13 @@ class iWebBrowser2 {
         return sTitle := RegExReplace( sTitle ? sTitle : this.active_IE_Title(), this.IE_Suffix() "$", "" )
         }
 
+    FindbyText(pwb, needle)
+        { ;; returns the element with the text in it        
+        try rng:=this.pdoc(pwb).body.createTextRange()
+        try rng.findText(needle)
+		return try rng.parentElement()
+	    }
+        
     IE_Suffix() 
         {
         static sIE_Suffix
