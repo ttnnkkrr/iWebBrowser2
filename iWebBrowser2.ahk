@@ -1,14 +1,32 @@
-
+/*
+$:=new iWebBrowser2
+pwb:=$.oIE_get("portal")
+$.Activate(pwb)
+*/
+iWebBrowser2(){
+    return true
+}
 class iWebBrowser2 {
 
-    oIE_new(ByRef sTitle = "", ByRef iHWND = "", ByRef sURL = "about:blank", ByRef sHTML = "", bVisible = true)
+    __new( ByRef sURL = "", ByRef sTitle = "", ByRef iHWND = "",  ByRef sHTML = "" , bVisible = true ) 
+        { ;; returns an iwebbrowser2 object
+        if !(this.pwb := this.oIE_get(sTitle,iHWND,sURL,sHTML))
+            {
+            this.pwb := this.oIE_new(sURL,sTitle,iHWND,sHTML,bVisible)
+            this.pwb.Navigate(sURL)
+            }
+            
+        return this
+        }
+    
+    oIE_new(ByRef sURL = "about:blank", ByRef sTitle = "", ByRef iHWND = "", ByRef sHTML = "", bVisible = true)
         {
         this.isInstalled()
-        oIE := ComObjCreate("internetexplorer.application")
-        oIE.Visible := bVisible
+        this.pwb := ComObjCreate("internetexplorer.application")
+        this.pwb.Visible := bVisible
         if sURL
-            oIE.Navigate(sURL)
-        return oIE
+            this.pwb.Navigate(sURL)
+        return this.pwb
         }
 
     oIE_get( ByRef sTitle = "", ByRef iHWND = "", ByRef sURL = "", ByRef sHTML = "" )
@@ -17,10 +35,7 @@ class iWebBrowser2 {
         ;~ this function is pointless if no instance of IE is open
         ;~ one edit you might make is to have this function open IE and maybe go to the home page
         if ( !winexist( "ahk_class IEFrame" ) )
-            {
-            MsgBox, 4112, NO IE Window Found, The Macro will end
-            ExitApp
-            }
+            return false
         
         if sTitle
             this.clean_IE_Title( sTitle ) 
@@ -33,9 +48,15 @@ class iWebBrowser2 {
             if ( "Internet Explorer" = window.Name)
                 {
                 possiblematch := true
+
+                try pdoc := window.document
+                Catch, e
+                    while window.busy 
+                        Sleep, 500
+
                 if !window.document
-                    continue
-                pdoc := this.pDoc(window)
+                    Continue
+
                 if ( possiblematch && sTitle && !instr( pdoc.title, sTitle ) )
                     possiblematch := false
                 
@@ -64,11 +85,68 @@ class iWebBrowser2 {
         if ( matches > 1 )
             {
             MsgBox, 4112, Too many Matches ,  Please modify your criteria or close some tabs/windows and retry
-            ExitApp
+            return false
             }
-            
-        return oIE
+        
+        return this.pwb := oIE
         }
+
+    FindbyText(needle)
+        { ;; returns the element with the text in it  
+        try rng:=this.pdoc().body.createTextRange()
+        try rng.findText(needle)
+		return try rng.parentElement()
+	    }
+
+    Activate(pwb) 
+        { 
+        DllCall("LoadLibrary", "str", "oleacc.dll") 
+        HWND:=pwb.HWND
+        DetectHiddenWindows, On 
+        WinActivate,% "ahk_id " HWND
+        WinWaitActive,% "ahk_id " HWND,,5
+        ControlGet, hTabBand, hWnd,, TabBandClass1, ahk_class IEFrame
+        ControlGet, hTabUI  , hWnd,, DirectUIHWND1, ahk_id %hTabBand% 
+        
+        VarSetCapacity(CLSID, 16)
+        nSize=38
+        wString := sString := "{618736E0-3C3D-11CF-810C-00AA00389B71}"
+        if(nSize = "")
+            nSize:=DllCall("kernel32\MultiByteToWideChar", "Uint", 0, "Uint", 0, "Uint", &sString, "int", -1, "Uint", 0, "int", 0)
+        VarSetCapacity(wString, nSize * 2 + 1)
+        DllCall("kernel32\MultiByteToWideChar", "Uint", 0, "Uint", 0, "Uint", &sString, "int", -1, "Uint", &wString, "int", nSize + 1)
+        DllCall("ole32\CLSIDFromString", "Uint",&wString , "Uint", &CLSID)
+        
+        If   hTabUI && DllCall("oleacc\AccessibleObjectFromWindow", "Uint", hTabUI, "Uint",-4, "Uint", &CLSID , "UintP", pacc)=0 
+            { 
+            pacc := ComObject(9, pacc, 1), ObjAddRef(pacc)
+            Loop, %   pacc.accChildCount 
+                If   paccChild:=pacc.accChild(A_Index) 
+                    If   paccChild.accRole(0+0) = 0x3C 
+                        { 
+                        paccTab:=paccChild 
+                        Break 
+                        } 
+                    Else   ObjRelease(paccChild) 
+            ObjRelease(pacc) 
+            } 
+        If   pacc:=paccTab 
+            { 
+            Loop, %   pacc.accChildCount
+                If   paccChild:=pacc.accChild(A_Index) 
+                    If   paccChild.accName(0+0) = sTitle   
+                        { 
+                        ObjRelease(pwb)
+                        paccChild.accDoDefaultAction(0)
+                        ObjRelease(paccChild) 
+                        Break 
+                        } 
+                    Else   ObjRelease(paccChild) 
+            ObjRelease(pacc) 
+            }  
+        WinActivate,% sTitle
+        } 
+
 
     isInstalled()
         {
@@ -91,9 +169,9 @@ class iWebBrowser2 {
             }
         } 
 
-    pDoc(oIE)
+    pDoc()
         {
-        return this.IHTMLWindow2_from_IWebDOCUMENT( oIE.document ).document
+        return this.IHTMLWindow2_from_IWebDOCUMENT( this.pwb.document ).document
         }
 
     clean_IE_Title( ByRef sTitle = "" ) 
@@ -101,13 +179,6 @@ class iWebBrowser2 {
         return sTitle := RegExReplace( sTitle ? sTitle : this.active_IE_Title(), this.IE_Suffix() "$", "" )
         }
 
-    FindbyText(pwb, needle)
-        { ;; returns the element with the text in it        
-        try rng:=this.pdoc(pwb).body.createTextRange()
-        try rng.findText(needle)
-		return try rng.parentElement()
-	    }
-        
     IE_Suffix() 
         {
         static sIE_Suffix
