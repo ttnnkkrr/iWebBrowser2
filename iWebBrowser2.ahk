@@ -1,11 +1,5 @@
-/*
-$:=new iWebBrowser2
-pwb:=$.oIE_get("portal")
-$.Activate(pwb)
-*/
-iWebBrowser2(){
-    return true
-}
+
+
 class iWebBrowser2 {
 
     __new( ByRef sURL = "", ByRef sTitle = "", ByRef iHWND = "",  ByRef sHTML = "" , bVisible = true ) 
